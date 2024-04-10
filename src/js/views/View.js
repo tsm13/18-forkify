@@ -2,17 +2,6 @@ import icons from '../../img/icons.svg';
 
 export default class View {
   _data;
-
-  // takes the data received from controller and stores it inside _data
-  /**
-   * Render the received object to the DOM
-   * @param {Object | Object[]} data The data to be rendered (e.g. recipe)
-   * @param {boolean} [render=true] If false, create markup string instead of rendering to the DOM
-   * @returns {undefined | string} A markup string is returned if render=false
-   * @this {Object} View instance
-   * @author TSM13
-   * @todo Finish implementation
-   */
   render(data, render = true) {
     if (!data || (Array.isArray(data) && data.length === 0))
       return this.renderError();
@@ -29,7 +18,6 @@ export default class View {
     this._data = data;
     const newMarkup = this._generateMarkup();
 
-    // Creates a new "Virtual" DOM element (which doesn't exist on the page but exists in memory)
     const newDOM = document.createRange().createContextualFragment(newMarkup);
     const newElements = Array.from(newDOM.querySelectorAll('*'));
     const currElements = Array.from(this._parentEl.querySelectorAll('*'));

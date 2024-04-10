@@ -522,7 +522,7 @@ body {
   font-size: 1.2rem;
 }
 
-.copyright .twitter-link:link, .copyright .twitter-link:visited {
+.copyright-link:link, .copyright-link:visited {
   color: #918581;
 }
 
