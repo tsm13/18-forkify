@@ -1,14 +1,6 @@
 import { API_URL, RES_PER_PAGE, KEY } from './config.js';
 import { AJAX } from './helpers.js';
 
-// *! DEV
-const clearBookmarks = function () {
-  localStorage.clear('bookmarks');
-};
-//clearBookmarks();
-
-///
-
 export const state = {
   recipe: {},
   search: {
@@ -32,8 +24,6 @@ const createRecipeObject = function (data) {
     cookingTime: recipe.cooking_time,
     ingredients: recipe.ingredients,
     ...(recipe.key && { key: recipe.key }),
-    // ^ trick to use SC: if there is a key, && will SC into true
-    // one way to conditionally add properties to objects
   };
 };
 
@@ -45,11 +35,7 @@ export const loadRecipe = async function (id) {
     if (state.bookmarks.some(bookmark => bookmark.id === id))
       state.recipe.bookmarked = true;
     else state.recipe.bookmarked = false;
-
-    console.log(state.recipe);
   } catch (err) {
-    // REVIEW:
-    console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
     throw err;
   }
 };
@@ -70,8 +56,6 @@ export const loadSearchResults = async function (query) {
     });
     state.search.page = 1;
   } catch (err) {
-    // REVIEW:
-    console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
     throw err;
   }
 };
@@ -90,7 +74,6 @@ export const updateServings = function (newServings) {
     // newQT = oldQT * newServings / oldServings // (2 * 8) / 4 = 4
     ing.quantity = (ing.quantity * newServings) / state.recipe.servings;
   });
-  // console.log(state.recipe.ingredients);
 
   // Updating state:
   state.recipe.servings = newServings;
@@ -153,9 +136,7 @@ export const uploadRecipe = async function (newRecipe) {
       ingredients,
     };
 
-    //console.log(recipe);
     const data = await AJAX(`${API_URL}?key=${KEY}`, recipe);
-    // console.log(data);
 
     state.recipe = createRecipeObject(data);
     addBookmark(state.recipe);

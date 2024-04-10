@@ -8,13 +8,11 @@ class RecipeView extends View {
   _errorMessage = `We could not find the recipe you are looking for.`;
   _message = '';
 
-  // the pub for the controlRecipes sub
   addHandlerRender(handler) {
     ['hashchange', 'load'].forEach(ev => window.addEventListener(ev, handler));
   }
 
   addHandlerUpdateServings(handler) {
-    // event delegation (updates the entire recipe parent el)
     this._parentEl.addEventListener('click', function (e) {
       const btn = e.target.closest('.btn--update-servings');
       if (!btn) return;
@@ -24,7 +22,6 @@ class RecipeView extends View {
   }
 
   addHandlerAddBookmark(handler) {
-    // event delegation
     this._parentEl.addEventListener('click', function (e) {
       const btn = e.target.closest('.btn--bookmark');
       if (!btn) return;

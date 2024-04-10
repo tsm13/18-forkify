@@ -6,7 +6,6 @@ class PaginationView extends View {
   _currentPage;
 
   addHandlerClick(handler) {
-    // event delegation
     this._parentEl.addEventListener('click', e => {
       const btn = e.target.closest('.btn--inline');
       if (!btn) return;
@@ -18,7 +17,7 @@ class PaginationView extends View {
 
   _generateMarkup() {
     this._currentPage = this._data.page;
-    // NOTE: const currentPage = this._data.page;
+
     const numPages = Math.ceil(
       this._data.results.length / this._data.resultsPerPage
     );
@@ -33,7 +32,7 @@ class PaginationView extends View {
       return this._generateMarkupButton('prev');
     }
 
-    // Other page
+    // Other pages
     if (this._currentPage < numPages) {
       return (
         this._generateMarkupButton('prev') + this._generateMarkupButton('next')
@@ -45,8 +44,6 @@ class PaginationView extends View {
   }
 
   _generateMarkupButton(type) {
-    // data attribute is used to connect the dom to the code logic
-
     if (type === 'prev')
       return `
         <button data-goto="${

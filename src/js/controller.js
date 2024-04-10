@@ -10,14 +10,6 @@ import addRecipeView from './views/addRecipeView.js';
 import 'core-js/stable'; // polyfill everything else
 import 'regenerator-runtime/runtime'; // polyfill async/await
 
-// *! DEV
-// if (module.hot) {
-//   module.hot.accept();
-// }
-
-///
-// Functions are called controllers (control***) here because of the architecture. They're essentially handlers for events.
-
 const controlRecipes = async function () {
   try {
     const id = window.location.hash.slice(1);
@@ -31,13 +23,12 @@ const controlRecipes = async function () {
     bookmarksView.update(model.state.bookmarks);
 
     // 3. Loading recipe
-    await model.loadRecipe(id); // loads recipe and stores data into the state obj in model
+    await model.loadRecipe(id);
 
     // 4. Rendering recipe
-    recipeView.render(model.state.recipe); // passes the data stored in the step above to the render method in view
+    recipeView.render(model.state.recipe);
   } catch (err) {
-    recipeView.renderError(); // will catch the error from the model and send it to the view (which can render it)
-    console.warn(err);
+    recipeView.renderError();
   }
 };
 
@@ -73,7 +64,6 @@ const controlServings = function (newServings) {
   model.updateServings(newServings);
 
   // Update the view (recipe view)
-  // recipeView.render(model.state.recipe);
   recipeView.update(model.state.recipe);
 };
 
@@ -103,7 +93,6 @@ const controlAddRecipe = async function (newRecipe) {
 
     // Upload the new recipe data
     await model.uploadRecipe(newRecipe);
-    // console.log(model.state.recipe);
 
     // Render recipe
     recipeView.render(model.state.recipe);

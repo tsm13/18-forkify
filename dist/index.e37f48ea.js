@@ -601,12 +601,6 @@ var _bookmarksViewJsDefault = parcelHelpers.interopDefault(_bookmarksViewJs);
 var _addRecipeViewJs = require("./views/addRecipeView.js");
 var _addRecipeViewJsDefault = parcelHelpers.interopDefault(_addRecipeViewJs);
 var _runtime = require("regenerator-runtime/runtime"); // polyfill async/await
-// *! DEV
-// if (module.hot) {
-//   module.hot.accept();
-// }
-///
-// Functions are called controllers (control***) here because of the architecture. They're essentially handlers for events.
 const controlRecipes = async function() {
     try {
         const id = window.location.hash.slice(1);
@@ -617,12 +611,11 @@ const controlRecipes = async function() {
         // 2. Updating bookmarks view
         (0, _bookmarksViewJsDefault.default).update(_modelJs.state.bookmarks);
         // 3. Loading recipe
-        await _modelJs.loadRecipe(id); // loads recipe and stores data into the state obj in model
+        await _modelJs.loadRecipe(id);
         // 4. Rendering recipe
-        (0, _recipeViewJsDefault.default).render(_modelJs.state.recipe); // passes the data stored in the step above to the render method in view
+        (0, _recipeViewJsDefault.default).render(_modelJs.state.recipe);
     } catch (err) {
-        (0, _recipeViewJsDefault.default).renderError(); // will catch the error from the model and send it to the view (which can render it)
-        console.warn(err);
+        (0, _recipeViewJsDefault.default).renderError();
     }
 };
 const controlSearchResults = async function() {
@@ -649,7 +642,6 @@ const controlServings = function(newServings) {
     // Update the recipe servings (in state)
     _modelJs.updateServings(newServings);
     // Update the view (recipe view)
-    // recipeView.render(model.state.recipe);
     (0, _recipeViewJsDefault.default).update(_modelJs.state.recipe);
 };
 const controlAddBookmark = function() {
@@ -670,7 +662,6 @@ const controlAddRecipe = async function(newRecipe) {
         (0, _addRecipeViewJsDefault.default).renderSpinner();
         // Upload the new recipe data
         await _modelJs.uploadRecipe(newRecipe);
-        // console.log(model.state.recipe);
         // Render recipe
         (0, _recipeViewJsDefault.default).render(_modelJs.state.recipe);
         // Display success message
@@ -1944,10 +1935,6 @@ parcelHelpers.export(exports, "deleteBookmark", ()=>deleteBookmark);
 parcelHelpers.export(exports, "uploadRecipe", ()=>uploadRecipe);
 var _configJs = require("./config.js");
 var _helpersJs = require("./helpers.js");
-// *! DEV
-const clearBookmarks = function() {
-    localStorage.clear("bookmarks");
-};
 const state = {
     recipe: {},
     search: {
@@ -1980,10 +1967,7 @@ const loadRecipe = async function(id) {
         state.recipe = createRecipeObject(data);
         if (state.bookmarks.some((bookmark)=>bookmark.id === id)) state.recipe.bookmarked = true;
         else state.recipe.bookmarked = false;
-        console.log(state.recipe);
     } catch (err) {
-        // REVIEW:
-        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
         throw err;
     }
 };
@@ -2004,8 +1988,6 @@ const loadSearchResults = async function(query) {
         });
         state.search.page = 1;
     } catch (err) {
-        // REVIEW:
-        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
         throw err;
     }
 };
@@ -2020,7 +2002,6 @@ const updateServings = function(newServings) {
         // newQT = oldQT * newServings / oldServings // (2 * 8) / 4 = 4
         ing.quantity = ing.quantity * newServings / state.recipe.servings;
     });
-    // console.log(state.recipe.ingredients);
     // Updating state:
     state.recipe.servings = newServings;
 };
@@ -2070,9 +2051,7 @@ const uploadRecipe = async function(newRecipe) {
             servings: +newRecipe.servings,
             ingredients
         };
-        //console.log(recipe);
         const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}?key=${(0, _configJs.KEY)}`, recipe);
-        // console.log(data);
         state.recipe = createRecipeObject(data);
         addBookmark(state.recipe);
     } catch (err) {
@@ -2153,41 +2132,9 @@ const AJAX = async function(url, uploadData) {
         if (!res.ok) throw new Error(`Error fetching recipe. (API error ${res.status}) ${data.message}`);
         return data;
     } catch (err) {
-        throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
+        throw err;
     }
-}; // export const getJSON = async function (url) {
- //   try {
- //     const res = await Promise.race([fetch(url), timeout(TIMEOUT_SEC)]);
- //     const data = await res.json();
- //     if (!res.ok)
- //       throw new Error(
- //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
- //       );
- //     return data;
- //   } catch (err) {
- //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
- //   }
- // };
- // export const sendJSON = async function (url, uploadData) {
- //   try {
- //     const fetchPro = fetch(url, {
- //       method: 'POST',
- //       headers: {
- //         'Content-Type': 'application/json',
- //       },
- //       body: JSON.stringify(uploadData),
- //     });
- //     const res = await Promise.race([fetchPro, timeout(TIMEOUT_SEC)]);
- //     const data = await res.json();
- //     if (!res.ok)
- //       throw new Error(
- //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
- //       );
- //     return data;
- //   } catch (err) {
- //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
- //   }
- // };
+};
 
 },{"./config.js":"k5Hzs","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"l60JC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
@@ -2202,7 +2149,6 @@ class RecipeView extends (0, _viewJsDefault.default) {
     _parentEl = document.querySelector(".recipe");
     _errorMessage = `We could not find the recipe you are looking for.`;
     _message = "";
-    // the pub for the controlRecipes sub
     addHandlerRender(handler) {
         [
             "hashchange",
@@ -2210,7 +2156,6 @@ class RecipeView extends (0, _viewJsDefault.default) {
         ].forEach((ev)=>window.addEventListener(ev, handler));
     }
     addHandlerUpdateServings(handler) {
-        // event delegation (updates the entire recipe parent el)
         this._parentEl.addEventListener("click", function(e) {
             const btn = e.target.closest(".btn--update-servings");
             if (!btn) return;
@@ -2219,7 +2164,6 @@ class RecipeView extends (0, _viewJsDefault.default) {
         });
     }
     addHandlerAddBookmark(handler) {
-        // event delegation
         this._parentEl.addEventListener("click", function(e) {
             const btn = e.target.closest(".btn--bookmark");
             if (!btn) return;
@@ -2542,7 +2486,6 @@ class SearchView extends (0, _viewJsDefault.default) {
     _clearInput() {
         this._parentEl.querySelector(".search__field").value = "";
     }
-    // the pub for controlSearchResults sub
     addHandlerSearch(handler) {
         this._parentEl.addEventListener("submit", (e)=>{
             e.preventDefault();
@@ -2564,7 +2507,6 @@ class ResultsView extends (0, _viewJsDefault.default) {
     _errorMessage = `No recipes found for your search. Please try another search.`;
     _message = "";
     // Instead of rendering, this method will return the markup as a string
-    // the boolean param is to prevent previewView from rendering, and let the resultsView obj render method render instead
     _generateMarkup() {
         return this._data.map((result)=>(0, _previewViewJsDefault.default).render(result, false)).join("");
     }
@@ -2615,7 +2557,6 @@ class PaginationView extends (0, _viewJsDefault.default) {
     _parentEl = document.querySelector(".pagination");
     _currentPage;
     addHandlerClick(handler) {
-        // event delegation
         this._parentEl.addEventListener("click", (e)=>{
             const btn = e.target.closest(".btn--inline");
             if (!btn) return;
@@ -2625,19 +2566,17 @@ class PaginationView extends (0, _viewJsDefault.default) {
     }
     _generateMarkup() {
         this._currentPage = this._data.page;
-        // NOTE: const currentPage = this._data.page;
         const numPages = Math.ceil(this._data.results.length / this._data.resultsPerPage);
         // Page 1, and there are other pages
         if (this._currentPage === 1 && numPages > 1) return this._generateMarkupButton("next");
         // Last page
         if (this._currentPage === numPages && numPages > 1) return this._generateMarkupButton("prev");
-        // Other page
+        // Other pages
         if (this._currentPage < numPages) return this._generateMarkupButton("prev") + this._generateMarkupButton("next");
         // Page 1, and there are no other pages
         return "";
     }
     _generateMarkupButton(type) {
-        // data attribute is used to connect the dom to the code logic
         if (type === "prev") return `
         <button data-goto="${this._currentPage - 1}" class="btn--inline pagination__btn--prev">
           <svg class="search__icon">
@@ -2673,7 +2612,6 @@ class BookmarksView extends (0, _viewJsDefault.default) {
         window.addEventListener("load", handler);
     }
     // Instead of rendering, this method will return the markup as a string
-    // the boolean param is to prevent previewView from rendering, and let the bookmarksView obj render method render instead
     _generateMarkup() {
         return this._data.map((bookmark)=>(0, _previewViewJsDefault.default).render(bookmark, false)).join("");
     }

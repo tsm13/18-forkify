@@ -7,7 +7,6 @@ class ResultsView extends View {
   _message = '';
 
   // Instead of rendering, this method will return the markup as a string
-  // the boolean param is to prevent previewView from rendering, and let the resultsView obj render method render instead
   _generateMarkup() {
     return this._data.map(result => previewView.render(result, false)).join('');
   }
