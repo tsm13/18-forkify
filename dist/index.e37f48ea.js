@@ -698,37 +698,7 @@ const init = function() {
 };
 init();
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","core-js/modules/web.immediate.js":"49tUX","regenerator-runtime/runtime":"dXNgZ","./model.js":"Y4A21","./views/recipeView.js":"l60JC","./views/searchView.js":"9OQAM","./views/resultsView.js":"cSbZE","./views/paginationView.js":"6z7bi","./views/bookmarksView.js":"4Lqzq","./views/addRecipeView.js":"i6DNj","./config.js":"k5Hzs"}],"gkKU3":[function(require,module,exports) {
-exports.interopDefault = function(a) {
-    return a && a.__esModule ? a : {
-        default: a
-    };
-};
-exports.defineInteropFlag = function(a) {
-    Object.defineProperty(a, "__esModule", {
-        value: true
-    });
-};
-exports.exportAll = function(source, dest) {
-    Object.keys(source).forEach(function(key) {
-        if (key === "default" || key === "__esModule" || Object.prototype.hasOwnProperty.call(dest, key)) return;
-        Object.defineProperty(dest, key, {
-            enumerable: true,
-            get: function() {
-                return source[key];
-            }
-        });
-    });
-    return dest;
-};
-exports.export = function(dest, destName, get) {
-    Object.defineProperty(dest, destName, {
-        enumerable: true,
-        get: get
-    });
-};
-
-},{}],"49tUX":[function(require,module,exports) {
+},{"core-js/modules/web.immediate.js":"49tUX","./model.js":"Y4A21","./config.js":"k5Hzs","./views/recipeView.js":"l60JC","./views/searchView.js":"9OQAM","./views/resultsView.js":"cSbZE","./views/paginationView.js":"6z7bi","./views/bookmarksView.js":"4Lqzq","./views/addRecipeView.js":"i6DNj","regenerator-runtime/runtime":"dXNgZ","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"49tUX":[function(require,module,exports) {
 "use strict";
 // TODO: Remove this module from `core-js@4` since it's split to modules listed below
 require("52e9b3eefbbce1ed");
@@ -1961,7 +1931,808 @@ module.exports = function(scheduler, hasTimeArg) {
 "use strict";
 /* global Bun -- Bun case */ module.exports = typeof Bun == "function" && Bun && typeof Bun.version == "string";
 
-},{}],"dXNgZ":[function(require,module,exports) {
+},{}],"Y4A21":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "state", ()=>state);
+parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe);
+parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults);
+parcelHelpers.export(exports, "getSearchResultsPage", ()=>getSearchResultsPage);
+parcelHelpers.export(exports, "updateServings", ()=>updateServings);
+parcelHelpers.export(exports, "addBookmark", ()=>addBookmark);
+parcelHelpers.export(exports, "deleteBookmark", ()=>deleteBookmark);
+parcelHelpers.export(exports, "uploadRecipe", ()=>uploadRecipe);
+var _configJs = require("./config.js");
+var _helpersJs = require("./helpers.js");
+// *! DEV
+const clearBookmarks = function() {
+    localStorage.clear("bookmarks");
+};
+const state = {
+    recipe: {},
+    search: {
+        query: "",
+        results: [],
+        page: 1,
+        resultsPerPage: (0, _configJs.RES_PER_PAGE)
+    },
+    bookmarks: []
+};
+const createRecipeObject = function(data) {
+    const { recipe } = data.data;
+    return {
+        id: recipe.id,
+        title: recipe.title,
+        publisher: recipe.publisher,
+        sourceUrl: recipe.source_url,
+        image: recipe.image_url,
+        servings: recipe.servings,
+        cookingTime: recipe.cooking_time,
+        ingredients: recipe.ingredients,
+        ...recipe.key && {
+            key: recipe.key
+        }
+    };
+};
+const loadRecipe = async function(id) {
+    try {
+        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}${id}?key=${(0, _configJs.KEY)}`);
+        state.recipe = createRecipeObject(data);
+        if (state.bookmarks.some((bookmark)=>bookmark.id === id)) state.recipe.bookmarked = true;
+        else state.recipe.bookmarked = false;
+        console.log(state.recipe);
+    } catch (err) {
+        // REVIEW:
+        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
+        throw err;
+    }
+};
+const loadSearchResults = async function(query) {
+    try {
+        state.search.query = query;
+        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}?search=${query}&key=${(0, _configJs.KEY)}`);
+        state.search.results = data.data.recipes.map((recipe)=>{
+            return {
+                id: recipe.id,
+                title: recipe.title,
+                publisher: recipe.publisher,
+                image: recipe.image_url,
+                ...recipe.key && {
+                    key: recipe.key
+                }
+            };
+        });
+        state.search.page = 1;
+    } catch (err) {
+        // REVIEW:
+        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
+        throw err;
+    }
+};
+const getSearchResultsPage = function(page = state.search.page) {
+    state.search.page = page;
+    const start = (page - 1) * state.search.resultsPerPage; // 0;
+    const end = page * state.search.resultsPerPage; // 9;
+    return state.search.results.slice(start, end);
+};
+const updateServings = function(newServings) {
+    state.recipe.ingredients.forEach((ing)=>{
+        // newQT = oldQT * newServings / oldServings // (2 * 8) / 4 = 4
+        ing.quantity = ing.quantity * newServings / state.recipe.servings;
+    });
+    // console.log(state.recipe.ingredients);
+    // Updating state:
+    state.recipe.servings = newServings;
+};
+const persistBookmarks = function() {
+    localStorage.setItem("bookmarks", JSON.stringify(state.bookmarks));
+};
+const addBookmark = function(recipe) {
+    // Add bookmark
+    state.bookmarks.push(recipe);
+    // Marking current recipe as bookmarked
+    if (recipe.id === state.recipe.id) state.recipe.bookmarked = true;
+    persistBookmarks();
+};
+const deleteBookmark = function(id) {
+    // Delete bookmark
+    const index = state.bookmarks.findIndex((el)=>el.id === id);
+    state.bookmarks.splice(index, 1);
+    // Marking recipe as not bookmarked
+    if (id === state.recipe.id) state.recipe.bookmarked = false;
+    persistBookmarks();
+};
+const init = function() {
+    const storage = localStorage.getItem("bookmarks");
+    if (storage) state.bookmarks = JSON.parse(storage);
+};
+init();
+const uploadRecipe = async function(newRecipe) {
+    try {
+        // Reorganizing ingredients into the format received by the API
+        const ingredients = Object.entries(newRecipe).filter((entry)=>entry[0].startsWith("ingredient") && entry[1] !== "").map((ing)=>{
+            const ingArr = ing[1].split(",").map((el)=>el.trim());
+            if (ingArr.length !== 3) throw new Error("Wrong ingredient format. Please use the correct format.");
+            const [quantity, unit, description] = ingArr;
+            return {
+                quantity: quantity ? +quantity : null,
+                unit,
+                description
+            };
+        });
+        // Reorganizing the obj that will be sent to the API
+        const recipe = {
+            title: newRecipe.title,
+            source_url: newRecipe.sourceUrl,
+            image_url: newRecipe.image,
+            publisher: newRecipe.publisher,
+            cooking_time: +newRecipe.cookingTime,
+            servings: +newRecipe.servings,
+            ingredients
+        };
+        //console.log(recipe);
+        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}?key=${(0, _configJs.KEY)}`, recipe);
+        // console.log(data);
+        state.recipe = createRecipeObject(data);
+        addBookmark(state.recipe);
+    } catch (err) {
+        throw err;
+    }
+};
+
+},{"./config.js":"k5Hzs","./helpers.js":"hGI1E","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"k5Hzs":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "API_URL", ()=>API_URL);
+parcelHelpers.export(exports, "TIMEOUT_SEC", ()=>TIMEOUT_SEC);
+parcelHelpers.export(exports, "RES_PER_PAGE", ()=>RES_PER_PAGE);
+parcelHelpers.export(exports, "KEY", ()=>KEY);
+parcelHelpers.export(exports, "MODAL_CLOSE_SEC", ()=>MODAL_CLOSE_SEC);
+const API_URL = `https://forkify-api.herokuapp.com/api/v2/recipes/`;
+const TIMEOUT_SEC = 10;
+const RES_PER_PAGE = 10;
+const KEY = "8d043094-da08-4371-9d81-dff471a30e33";
+const MODAL_CLOSE_SEC = 2.5;
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gkKU3":[function(require,module,exports) {
+exports.interopDefault = function(a) {
+    return a && a.__esModule ? a : {
+        default: a
+    };
+};
+exports.defineInteropFlag = function(a) {
+    Object.defineProperty(a, "__esModule", {
+        value: true
+    });
+};
+exports.exportAll = function(source, dest) {
+    Object.keys(source).forEach(function(key) {
+        if (key === "default" || key === "__esModule" || Object.prototype.hasOwnProperty.call(dest, key)) return;
+        Object.defineProperty(dest, key, {
+            enumerable: true,
+            get: function() {
+                return source[key];
+            }
+        });
+    });
+    return dest;
+};
+exports.export = function(dest, destName, get) {
+    Object.defineProperty(dest, destName, {
+        enumerable: true,
+        get: get
+    });
+};
+
+},{}],"hGI1E":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "AJAX", ()=>AJAX);
+var _configJs = require("./config.js");
+const timeout = function(s) {
+    return new Promise(function(_, reject) {
+        setTimeout(function() {
+            reject(new Error(`Request took too long! Timeout after ${s} second`));
+        }, s * 1000);
+    });
+};
+const AJAX = async function(url, uploadData) {
+    try {
+        const fetchPromise = uploadData ? fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(uploadData)
+        }) : fetch(url);
+        const res = await Promise.race([
+            fetchPromise,
+            timeout((0, _configJs.TIMEOUT_SEC))
+        ]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(`Error fetching recipe. (API error ${res.status}) ${data.message}`);
+        return data;
+    } catch (err) {
+        throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
+    }
+}; // export const getJSON = async function (url) {
+ //   try {
+ //     const res = await Promise.race([fetch(url), timeout(TIMEOUT_SEC)]);
+ //     const data = await res.json();
+ //     if (!res.ok)
+ //       throw new Error(
+ //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
+ //       );
+ //     return data;
+ //   } catch (err) {
+ //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
+ //   }
+ // };
+ // export const sendJSON = async function (url, uploadData) {
+ //   try {
+ //     const fetchPro = fetch(url, {
+ //       method: 'POST',
+ //       headers: {
+ //         'Content-Type': 'application/json',
+ //       },
+ //       body: JSON.stringify(uploadData),
+ //     });
+ //     const res = await Promise.race([fetchPro, timeout(TIMEOUT_SEC)]);
+ //     const data = await res.json();
+ //     if (!res.ok)
+ //       throw new Error(
+ //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
+ //       );
+ //     return data;
+ //   } catch (err) {
+ //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
+ //   }
+ // };
+
+},{"./config.js":"k5Hzs","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"l60JC":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+var _iconsSvg = require("../../img/icons.svg");
+var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
+var _fracty = require("fracty");
+var _fractyDefault = parcelHelpers.interopDefault(_fracty);
+class RecipeView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".recipe");
+    _errorMessage = `We could not find the recipe you are looking for.`;
+    _message = "";
+    // the pub for the controlRecipes sub
+    addHandlerRender(handler) {
+        [
+            "hashchange",
+            "load"
+        ].forEach((ev)=>window.addEventListener(ev, handler));
+    }
+    addHandlerUpdateServings(handler) {
+        // event delegation (updates the entire recipe parent el)
+        this._parentEl.addEventListener("click", function(e) {
+            const btn = e.target.closest(".btn--update-servings");
+            if (!btn) return;
+            const { updateTo } = btn.dataset;
+            if (+updateTo > 0) handler(+updateTo);
+        });
+    }
+    addHandlerAddBookmark(handler) {
+        // event delegation
+        this._parentEl.addEventListener("click", function(e) {
+            const btn = e.target.closest(".btn--bookmark");
+            if (!btn) return;
+            handler();
+        });
+    }
+    _generateMarkup() {
+        return `
+      <figure class="recipe__fig">
+        <img src='${this._data.image}' alt="${this._data.title}" class="recipe__img" />
+        <h1 class="recipe__title">
+          <span>${this._data.title}</span>
+        </h1>
+      </figure>
+
+      <div class="recipe__details">
+        <div class="recipe__info">
+          <svg class="recipe__info-icon">
+            <use href="${0, _iconsSvgDefault.default}#icon-clock"></use>
+          </svg>
+          <span class="recipe__info-data recipe__info-data--minutes">${this._data.cookingTime}</span>
+          <span class="recipe__info-text">minutes</span>
+        </div>
+        <div class="recipe__info">
+          <svg class="recipe__info-icon">
+            <use href="${0, _iconsSvgDefault.default}#icon-users"></use>
+          </svg>
+          <span class="recipe__info-data recipe__info-data--people">${this._data.servings}</span>
+          <span class="recipe__info-text">servings</span>
+
+          <div class="recipe__info-buttons">
+            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings - 1}">
+              <svg>
+                <use href="${0, _iconsSvgDefault.default}#icon-minus-circle"></use>
+              </svg>
+            </button>
+            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings + 1}">
+              <svg>
+                <use href="${0, _iconsSvgDefault.default}#icon-plus-circle"></use>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="recipe__user-generated ${this._data.key ? "" : "hidden"}">
+          <svg>
+            <use href="${0, _iconsSvgDefault.default}#icon-user"></use>
+          </svg>
+        </div>
+        <button class="btn--round btn--bookmark">
+          <svg class="">
+            <use href="${0, _iconsSvgDefault.default}#icon-bookmark${this._data.bookmarked ? "-fill" : ""}"></use>
+          </svg>
+        </button>
+      </div>
+
+      <div class="recipe__ingredients">
+        <h2 class="heading--2">Recipe ingredients</h2>
+        <ul class="recipe__ingredient-list">
+        ${this._data.ingredients.map(this._generateMarkupIngredient).join("")}
+        </ul>
+      </div>
+
+      <div class="recipe__directions">
+        <h2 class="heading--2">How to cook it</h2>
+        <p class="recipe__directions-text">
+          This recipe was carefully designed and tested by
+          <span class="recipe__publisher">${this._data.publisher}</span>. Please check out
+          directions at their website.
+        </p>
+        <a
+          class="btn--small recipe__btn"
+          href="${this._data.sourceUrl}"
+          target="_blank"
+        >
+          <span>Directions</span>
+          <svg class="search__icon">
+            <use href="${0, _iconsSvgDefault.default}#icon-arrow-right"></use>
+          </svg>
+        </a>
+      </div>
+    `;
+    }
+    _generateMarkupIngredient(ing) {
+        return `
+    <li class="recipe__ingredient">
+      <svg class="recipe__icon">
+        <use href="${0, _iconsSvgDefault.default}#icon-check"></use>
+      </svg>
+      <div class="recipe__quantity">${ing.quantity ? (0, _fractyDefault.default)(ing.quantity).toString() : ""}</div>
+      <div class="recipe__description">
+        <span class="recipe__unit">${ing.unit}</span>
+        ${ing.description}
+      </div>
+    </li>`;
+    }
+}
+exports.default = new RecipeView();
+
+},{"./View.js":"5cUXS","../../img/icons.svg":"cMpiy","fracty":"hJO4d","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"5cUXS":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _iconsSvg = require("../../img/icons.svg");
+var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
+class View {
+    _data;
+    // takes the data received from controller and stores it inside _data
+    /**
+   * Render the received object to the DOM
+   * @param {Object | Object[]} data The data to be rendered (e.g. recipe)
+   * @param {boolean} [render=true] If false, create markup string instead of rendering to the DOM
+   * @returns {undefined | string} A markup string is returned if render=false
+   * @this {Object} View instance
+   * @author TSM13
+   * @todo Finish implementation
+   */ render(data, render = true) {
+        if (!data || Array.isArray(data) && data.length === 0) return this.renderError();
+        this._data = data;
+        const markup = this._generateMarkup();
+        if (!render) return markup;
+        this._clear();
+        this._parentEl.insertAdjacentHTML("afterbegin", markup);
+    }
+    // Compares the new HTML to the old HTML, and only updates what changed
+    update(data) {
+        this._data = data;
+        const newMarkup = this._generateMarkup();
+        // Creates a new "Virtual" DOM element (which doesn't exist on the page but exists in memory)
+        const newDOM = document.createRange().createContextualFragment(newMarkup);
+        const newElements = Array.from(newDOM.querySelectorAll("*"));
+        const currElements = Array.from(this._parentEl.querySelectorAll("*"));
+        newElements.forEach((newEl, i)=>{
+            const currEl = currElements[i];
+            // Updates changed text
+            if (!newEl.isEqualNode(currEl) && newEl.firstChild?.nodeValue.trim() !== "") currEl.textContent = newEl.textContent;
+            // Updates changed attributes: replacing attributes from the old attribute to the new ones
+            if (!newEl.isEqualNode(currEl)) Array.from(newEl.attributes).forEach((attr)=>currEl.setAttribute(attr.name, attr.value));
+        });
+    }
+    _clear() {
+        this._parentEl.innerHTML = "";
+    }
+    renderSpinner() {
+        const markup = `
+        <div class="spinner">
+          <svg>
+            <use href="${(0, _iconsSvgDefault.default)}#icon-loader"></use>
+          </svg>
+        </div>
+        `;
+        this._clear();
+        this._parentEl.insertAdjacentHTML("afterbegin", markup);
+    }
+    renderError(message = this._errorMessage) {
+        const markup = `
+          <div class="error">
+            <div>
+              <svg>
+                <use href="${(0, _iconsSvgDefault.default)}#icon-alert-triangle"></use>
+              </svg>
+            </div>
+            <p>${message}</p>
+          </div>
+        `;
+        this._clear();
+        this._parentEl.insertAdjacentHTML("afterbegin", markup);
+    }
+    renderMessage(message = this._message) {
+        const markup = `
+           <div class="message">
+            <div>
+              <svg>
+                <use href="${(0, _iconsSvgDefault.default)}#icon-smile"></use>
+              </svg>
+            </div>
+            <p>${message}</p>
+          </div>
+        `;
+        this._clear();
+        this._parentEl.insertAdjacentHTML("afterbegin", markup);
+    }
+}
+exports.default = View;
+
+},{"../../img/icons.svg":"cMpiy","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"cMpiy":[function(require,module,exports) {
+module.exports = require("17cff2908589362b").getBundleURL("hWUTQ") + "icons.21bad73c.svg" + "?" + Date.now();
+
+},{"17cff2908589362b":"lgJ39"}],"lgJ39":[function(require,module,exports) {
+"use strict";
+var bundleURL = {};
+function getBundleURLCached(id) {
+    var value = bundleURL[id];
+    if (!value) {
+        value = getBundleURL();
+        bundleURL[id] = value;
+    }
+    return value;
+}
+function getBundleURL() {
+    try {
+        throw new Error();
+    } catch (err) {
+        var matches = ("" + err.stack).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^)\n]+/g);
+        if (matches) // The first two stack frames will be this function and getBundleURLCached.
+        // Use the 3rd one, which will be a runtime in the original bundle.
+        return getBaseURL(matches[2]);
+    }
+    return "/";
+}
+function getBaseURL(url) {
+    return ("" + url).replace(/^((?:https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/.+)\/[^/]+$/, "$1") + "/";
+}
+// TODO: Replace uses with `new URL(url).origin` when ie11 is no longer supported.
+function getOrigin(url) {
+    var matches = ("" + url).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^/]+/);
+    if (!matches) throw new Error("Origin not found");
+    return matches[0];
+}
+exports.getBundleURL = getBundleURLCached;
+exports.getBaseURL = getBaseURL;
+exports.getOrigin = getOrigin;
+
+},{}],"hJO4d":[function(require,module,exports) {
+// FRACTY CONVERTS DECIMAL NUMBERS TO FRACTIONS BY ASSUMING THAT TRAILING PATTERNS FROM 10^-2 CONTINUE TO REPEAT
+// The assumption is based on the most standard numbering conventions
+// e.g. 3.51 will convert to 3 51/100 while 3.511 will convert to 3 23/45
+// Throw any number up to 16 digits long at fracty and let fracy do the work.
+// If number is beyond 16 digits fracty will truncate at 15 digits to compensate for roundoff errors created in IEEE 754 Floating Point conversion.
+module.exports = function(number) {
+    let type;
+    if (number < 0) {
+        number = Math.abs(number);
+        type = "-";
+    } else type = "";
+    if (number === undefined) return `Your input was undefined.`;
+    if (isNaN(number)) return `"${number}" is not a number.`;
+    if (number == 9999999999999999) return `${type}9999999999999999`;
+    if (number > 9999999999999999) return `Too many digits in your integer to maintain IEEE 754 Floating Point conversion accuracy.`;
+    if (Number.isInteger(number)) return `${type}${number}`;
+    if (number < .000001) return "0";
+    const numberString = number.toString();
+    const entry = numberString.split(".");
+    let integer = entry[0];
+    let decimal;
+    if (decimal == "0" && integer !== "0") return integer;
+    else if (decimal == "0" && integer == "0") return "0";
+    else if (numberString.length >= 17) decimal = entry[1].slice(0, entry[1].length - 1);
+    else decimal = entry[1];
+    if (decimal == "99" && integer !== "0") return `${integer} 99/100`;
+    else if (decimal == "99" && integer == "0") return `99/100`;
+    else if (1 - parseFloat(`.${decimal}`) < .0011) decimal = "999";
+    if (decimal == undefined) return integer;
+    const decimalRev = decimal.split("").reverse().join(""); //Reverse the string to look for patterns.
+    const patternSearch = /^(\d+)\1{1,2}/; //This greedy regex matches the biggest pattern that starts at the beginning of the string (at the end, in the case of the reversed string). A lazy regex doesn't work because it only identifies subpatterns in cases where subpatterns exist (e.g. '88' in '388388388388'), thus pattern capture must be greedy.
+    let pattern = decimalRev.match(patternSearch); //If there's a pattern, it's full sequence is in [0] of this array and the single unit is in [1] but it may still need to be reduced further.
+    if (pattern && decimal.length > 2) {
+        let patternSequence = pattern[0].split("").reverse().join("");
+        let endPattern = pattern[1].split("").reverse().join("");
+        if (endPattern.length > 1) {
+            let endPatternArray = endPattern.split("");
+            let testSingleUnit = 1;
+            for(let i = 0; i < endPatternArray.length; i++)testSingleUnit /= endPatternArray[0] / endPatternArray[i];
+            if (testSingleUnit === 1) endPattern = endPatternArray[0];
+        }
+        if (endPattern.length > 1 && endPattern.length % 2 === 0) endPattern = parseInt(endPattern.slice(0, endPattern.length / 2), 10) - parseInt(endPattern.slice(endPattern.length / 2, endPattern.length), 10) === 0 ? endPattern.slice(0, endPattern.length / 2) : endPattern;
+        return yesRepeat(decimal, endPattern, patternSequence, integer, type); //Begin calculating the numerator and denominator for decimals that have a pattern.
+    } else return noRepeat(decimal, integer, type); //Begin calculating the numerator and denominator for decimals that don't have a pattern.
+};
+//IF THERE'S A TRAILING PATTERN FRACTY DIVIDES THE INPUT BY ONE SUBTRACTED FROM THE NEAREST BASE 10 NUMBER WITH NUMBER OF ZEROS EQUAL TO THE LENGTH OF THE REPEATED PATTERN (I.E. A SERIES OF 9'S) MULTIPLIED BY THE BASE 10 NUMBER GREATER THAN AND CLOSEST TO THE INPUT.
+function yesRepeat(decimal, endPattern, patternSequence, integer, type) {
+    const rep = true; //The numerator repeats.
+    const nonPatternLength = decimal.length - patternSequence.length >= 1 ? decimal.length - patternSequence.length : 1; //Does the length of the non pattern segment of the input = 0? If it does, that's incorrect since we know it must equal at least 1, otherwise it's the length of the decimal input minus the length of the full pattern.
+    const decimalMultiplier2 = Math.pow(10, nonPatternLength); //Second multiplier to use.
+    const float = parseFloat(`0.${decimal}`); //Convert the decimal input to a floating point number.
+    const decimalMultiplier1 = Math.pow(10, endPattern.length); //Find the right multiplier to use for both numerator and denominator, which will later have 1 subtracted from it in the case of the denominator.
+    const numerator = Math.round((float * decimalMultiplier1 - float) * Math.pow(10, nonPatternLength)); //Find the numerator to be used in calculating the fraction that contains a repeating trailing sequence.
+    const denominator = (decimalMultiplier1 - 1) * decimalMultiplier2; //Caluculate the denominator using the equation for repeating trailing sequences.
+    return reduce(numerator, denominator, integer, type, rep); //Further reduce the numerator and denominator.
+}
+//IF THERE'S NO TRAILING PATTERN FRACTY DIVIDES THE INPUT BY THE NEAREST BASE 10 INTEGER GREATER THAN THE NUMERATOR.
+function noRepeat(decimal, integer, type) {
+    const rep = false; //The numerator doesn't repeat.
+    const numerator = parseInt(decimal, 10); //Numerator begins as decimal input converted into an integer.
+    const denominator = Math.pow(10, decimal.length); //Denominator begins as 10 to the power of the length of the numerator.
+    return reduce(numerator, denominator, integer, type, rep); //Reduce the numerator and denominator.
+}
+//FRACTY REDUCES THE FRACTION.
+function reduce(numerator, denominator, integer, type, rep) {
+    const primeNumberArray = [
+        2,
+        3,
+        5
+    ]; //If the numerator isn't from a repeating decimal case, the initialized array of prime numbers will suffice to find the common denominators.
+    if (rep === true) {
+        for(let i = 3; i * i <= numerator; i += 2)if (numerator % i === 0) primeNumberArray.push(i);
+    }
+    let j = 0; //Initialize counter over the prime number array for the while loop.
+    let comDenom = 1; //Initialize the common denominator.
+    let num = numerator; //Initialize the numerator.
+    let den = denominator; //Initialize the denominator.
+    while(j <= primeNumberArray.length)if (num % primeNumberArray[j] === 0 && den % primeNumberArray[j] === 0) {
+        comDenom = comDenom * primeNumberArray[j];
+        num = num / primeNumberArray[j];
+        den = den / primeNumberArray[j];
+    } else j++;
+    return returnStrings(den, num, integer, type);
+}
+//FRACTY RETURNS THE REDUCED FRACTION AS A STRING.
+function returnStrings(den, num, integer, type) {
+    if (den === 1 && num === 1) {
+        integer = `${type}${(parseInt(integer) + 1).toString()}`; //Add 1 to the integer and return a string without a fraction.
+        return `${integer}`;
+    } else if (num === 0) return `${type}${integer}`;
+    else if (integer == "0") return `${type}${num}/${den}`;
+    else return `${type}${integer} ${num}/${den}`; //If there's an integer and a fraction return both.
+}
+
+},{}],"9OQAM":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+class SearchView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".search");
+    getQuery() {
+        const query = this._parentEl.querySelector(".search__field").value;
+        this._clearInput();
+        return query;
+    }
+    _clearInput() {
+        this._parentEl.querySelector(".search__field").value = "";
+    }
+    // the pub for controlSearchResults sub
+    addHandlerSearch(handler) {
+        this._parentEl.addEventListener("submit", (e)=>{
+            e.preventDefault();
+            handler();
+        });
+    }
+}
+exports.default = new SearchView();
+
+},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"cSbZE":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+var _previewViewJs = require("./previewView.js");
+var _previewViewJsDefault = parcelHelpers.interopDefault(_previewViewJs);
+class ResultsView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".results");
+    _errorMessage = `No recipes found for your search. Please try another search.`;
+    _message = "";
+    // Instead of rendering, this method will return the markup as a string
+    // the boolean param is to prevent previewView from rendering, and let the resultsView obj render method render instead
+    _generateMarkup() {
+        return this._data.map((result)=>(0, _previewViewJsDefault.default).render(result, false)).join("");
+    }
+}
+exports.default = new ResultsView();
+
+},{"./View.js":"5cUXS","./previewView.js":"1FDQ6","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"1FDQ6":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _iconsSvg = require("../../img/icons.svg");
+var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+class PreviewView extends (0, _viewJsDefault.default) {
+    _parentEl = "";
+    _generateMarkup() {
+        const id = window.location.hash.slice(1);
+        return `
+      <li class="preview">
+        <a class="preview__link ${this._data.id === id ? "preview__link--active" : ""}" href="#${this._data.id}">
+          <figure class="preview__fig">
+            <img src="${this._data.image}" alt="${this._data.title}" />
+          </figure>
+          <div class="preview__data">
+            <h4 class="preview__title">${this._data.title}</h4>
+            <p class="preview__publisher">${this._data.publisher}</p>
+            <div class="preview__user-generated ${this._data.key ? "" : "hidden"}">
+              <svg>
+                <use href="${0, _iconsSvgDefault.default}#icon-user"></use>
+              </svg>
+            </div>
+          </div>
+        </a>
+      </li>
+    `;
+    }
+}
+exports.default = new PreviewView();
+
+},{"../../img/icons.svg":"cMpiy","./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"6z7bi":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _iconsSvg = require("../../img/icons.svg");
+var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+class PaginationView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".pagination");
+    _currentPage;
+    addHandlerClick(handler) {
+        // event delegation
+        this._parentEl.addEventListener("click", (e)=>{
+            const btn = e.target.closest(".btn--inline");
+            if (!btn) return;
+            const goToPage = +btn.dataset.goto;
+            handler(goToPage);
+        });
+    }
+    _generateMarkup() {
+        this._currentPage = this._data.page;
+        // NOTE: const currentPage = this._data.page;
+        const numPages = Math.ceil(this._data.results.length / this._data.resultsPerPage);
+        // Page 1, and there are other pages
+        if (this._currentPage === 1 && numPages > 1) return this._generateMarkupButton("next");
+        // Last page
+        if (this._currentPage === numPages && numPages > 1) return this._generateMarkupButton("prev");
+        // Other page
+        if (this._currentPage < numPages) return this._generateMarkupButton("prev") + this._generateMarkupButton("next");
+        // Page 1, and there are no other pages
+        return "";
+    }
+    _generateMarkupButton(type) {
+        // data attribute is used to connect the dom to the code logic
+        if (type === "prev") return `
+        <button data-goto="${this._currentPage - 1}" class="btn--inline pagination__btn--prev">
+          <svg class="search__icon">
+              <use href="${0, _iconsSvgDefault.default}#icon-arrow-left"></use>
+          </svg>
+          <span>Page ${this._currentPage - 1}</span>
+        </button>
+  `;
+        if (type === "next") return `
+        <button data-goto="${this._currentPage + 1}" class="btn--inline pagination__btn--next">
+          <span>Page ${this._currentPage + 1}</span>
+          <svg class="search__icon">
+              <use href="${0, _iconsSvgDefault.default}#icon-arrow-right"></use>
+          </svg>
+        </button>
+  `;
+    }
+}
+exports.default = new PaginationView();
+
+},{"../../img/icons.svg":"cMpiy","./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"4Lqzq":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+var _previewViewJs = require("./previewView.js");
+var _previewViewJsDefault = parcelHelpers.interopDefault(_previewViewJs);
+class BookmarksView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".bookmarks__list");
+    _errorMessage = `No bookmarks yet. Find a nice recipe and bookmark it :)`;
+    _message = "";
+    addHandlerRender(handler) {
+        window.addEventListener("load", handler);
+    }
+    // Instead of rendering, this method will return the markup as a string
+    // the boolean param is to prevent previewView from rendering, and let the bookmarksView obj render method render instead
+    _generateMarkup() {
+        return this._data.map((bookmark)=>(0, _previewViewJsDefault.default).render(bookmark, false)).join("");
+    }
+}
+exports.default = new BookmarksView();
+
+},{"./View.js":"5cUXS","./previewView.js":"1FDQ6","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"i6DNj":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+var _viewJs = require("./View.js");
+var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
+class AddRecipeView extends (0, _viewJsDefault.default) {
+    _parentEl = document.querySelector(".upload");
+    _message = "Recipe uploaded successfully! :D";
+    _window = document.querySelector(".add-recipe-window");
+    _overlay = document.querySelector(".overlay");
+    _btnOpen = document.querySelector(".nav__btn--add-recipe");
+    _btnClose = document.querySelector(".btn--close-modal");
+    constructor(){
+        super();
+        this._addHandlerShowWindow();
+        this._addHandlerCloseWindow();
+    }
+    toggleWindow() {
+        this._overlay.classList.toggle("hidden");
+        this._window.classList.toggle("hidden");
+    }
+    _addHandlerShowWindow() {
+        this._btnOpen.addEventListener("click", this.toggleWindow.bind(this));
+    }
+    _addHandlerCloseWindow() {
+        this._btnClose.addEventListener("click", this.toggleWindow.bind(this));
+        this._overlay.addEventListener("click", this.toggleWindow.bind(this));
+    }
+    addHandlerUpload(handler) {
+        this._parentEl.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const dataArr = [
+                ...new FormData(this)
+            ];
+            const data = Object.fromEntries(dataArr);
+            handler(data);
+        });
+    }
+    _generateMarkup() {}
+}
+exports.default = new AddRecipeView();
+
+},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"dXNgZ":[function(require,module,exports) {
 /**
  * Copyright (c) 2014-present, Facebook, Inc.
  *
@@ -2546,934 +3317,6 @@ try {
     else Function("r", "regeneratorRuntime = r")(runtime);
 }
 
-},{}],"Y4A21":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "state", ()=>state);
-parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe);
-parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults);
-parcelHelpers.export(exports, "getSearchResultsPage", ()=>getSearchResultsPage);
-parcelHelpers.export(exports, "updateServings", ()=>updateServings);
-parcelHelpers.export(exports, "addBookmark", ()=>addBookmark);
-parcelHelpers.export(exports, "deleteBookmark", ()=>deleteBookmark);
-parcelHelpers.export(exports, "uploadRecipe", ()=>uploadRecipe);
-var _configJs = require("./config.js");
-var _helpersJs = require("./helpers.js");
-// *! DEV
-const clearBookmarks = function() {
-    localStorage.clear("bookmarks");
-};
-const state = {
-    recipe: {},
-    search: {
-        query: "",
-        results: [],
-        page: 1,
-        resultsPerPage: (0, _configJs.RES_PER_PAGE)
-    },
-    bookmarks: []
-};
-const createRecipeObject = function(data) {
-    const { recipe } = data.data;
-    return {
-        id: recipe.id,
-        title: recipe.title,
-        publisher: recipe.publisher,
-        sourceUrl: recipe.source_url,
-        image: recipe.image_url,
-        servings: recipe.servings,
-        cookingTime: recipe.cooking_time,
-        ingredients: recipe.ingredients,
-        ...recipe.key && {
-            key: recipe.key
-        }
-    };
-};
-const loadRecipe = async function(id) {
-    try {
-        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}${id}?key=${(0, _configJs.KEY)}`);
-        state.recipe = createRecipeObject(data);
-        if (state.bookmarks.some((bookmark)=>bookmark.id === id)) state.recipe.bookmarked = true;
-        else state.recipe.bookmarked = false;
-        console.log(state.recipe);
-    } catch (err) {
-        // REVIEW:
-        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
-        throw err;
-    }
-};
-const loadSearchResults = async function(query) {
-    try {
-        state.search.query = query;
-        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}?search=${query}&key=${(0, _configJs.KEY)}`);
-        state.search.results = data.data.recipes.map((recipe)=>{
-            return {
-                id: recipe.id,
-                title: recipe.title,
-                publisher: recipe.publisher,
-                image: recipe.image_url,
-                ...recipe.key && {
-                    key: recipe.key
-                }
-            };
-        });
-        state.search.page = 1;
-    } catch (err) {
-        // REVIEW:
-        console.warn(`AAAAAAAAAAAAAAAHHHHHHHHHHH ERROR!!! ${err}`);
-        throw err;
-    }
-};
-const getSearchResultsPage = function(page = state.search.page) {
-    state.search.page = page;
-    const start = (page - 1) * state.search.resultsPerPage; // 0;
-    const end = page * state.search.resultsPerPage; // 9;
-    return state.search.results.slice(start, end);
-};
-const updateServings = function(newServings) {
-    state.recipe.ingredients.forEach((ing)=>{
-        // newQT = oldQT * newServings / oldServings // (2 * 8) / 4 = 4
-        ing.quantity = ing.quantity * newServings / state.recipe.servings;
-    });
-    // console.log(state.recipe.ingredients);
-    // Updating state:
-    state.recipe.servings = newServings;
-};
-const persistBookmarks = function() {
-    localStorage.setItem("bookmarks", JSON.stringify(state.bookmarks));
-};
-const addBookmark = function(recipe) {
-    // Add bookmark
-    state.bookmarks.push(recipe);
-    // Marking current recipe as bookmarked
-    if (recipe.id === state.recipe.id) state.recipe.bookmarked = true;
-    persistBookmarks();
-};
-const deleteBookmark = function(id) {
-    // Delete bookmark
-    const index = state.bookmarks.findIndex((el)=>el.id === id);
-    state.bookmarks.splice(index, 1);
-    // Marking recipe as not bookmarked
-    if (id === state.recipe.id) state.recipe.bookmarked = false;
-    persistBookmarks();
-};
-const init = function() {
-    const storage = localStorage.getItem("bookmarks");
-    if (storage) state.bookmarks = JSON.parse(storage);
-};
-init();
-const uploadRecipe = async function(newRecipe) {
-    try {
-        // Reorganizing ingredients into the format received by the API
-        const ingredients = Object.entries(newRecipe).filter((entry)=>entry[0].startsWith("ingredient") && entry[1] !== "").map((ing)=>{
-            const ingArr = ing[1].split(",").map((el)=>el.trim());
-            if (ingArr.length !== 3) throw new Error("Wrong ingredient format. Please use the correct format.");
-            const [quantity, unit, description] = ingArr;
-            return {
-                quantity: quantity ? +quantity : null,
-                unit,
-                description
-            };
-        });
-        // Reorganizing the obj that will be sent to the API
-        const recipe = {
-            title: newRecipe.title,
-            source_url: newRecipe.sourceUrl,
-            image_url: newRecipe.image,
-            publisher: newRecipe.publisher,
-            cooking_time: +newRecipe.cookingTime,
-            servings: +newRecipe.servings,
-            ingredients
-        };
-        //console.log(recipe);
-        const data = await (0, _helpersJs.AJAX)(`${(0, _configJs.API_URL)}?key=${(0, _configJs.KEY)}`, recipe);
-        // console.log(data);
-        state.recipe = createRecipeObject(data);
-        addBookmark(state.recipe);
-    } catch (err) {
-        throw err;
-    }
-};
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./config.js":"k5Hzs","./helpers.js":"hGI1E"}],"k5Hzs":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "API_URL", ()=>API_URL);
-parcelHelpers.export(exports, "TIMEOUT_SEC", ()=>TIMEOUT_SEC);
-parcelHelpers.export(exports, "RES_PER_PAGE", ()=>RES_PER_PAGE);
-parcelHelpers.export(exports, "KEY", ()=>KEY);
-parcelHelpers.export(exports, "MODAL_CLOSE_SEC", ()=>MODAL_CLOSE_SEC);
-const API_URL = `https://forkify-api.herokuapp.com/api/v2/recipes/`;
-const TIMEOUT_SEC = 10;
-const RES_PER_PAGE = 10;
-const KEY = "8d043094-da08-4371-9d81-dff471a30e33";
-const MODAL_CLOSE_SEC = 2.5;
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"hGI1E":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "AJAX", ()=>AJAX);
-var _configJs = require("./config.js");
-const timeout = function(s) {
-    return new Promise(function(_, reject) {
-        setTimeout(function() {
-            reject(new Error(`Request took too long! Timeout after ${s} second`));
-        }, s * 1000);
-    });
-};
-const AJAX = async function(url, uploadData) {
-    try {
-        const fetchPromise = uploadData ? fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(uploadData)
-        }) : fetch(url);
-        const res = await Promise.race([
-            fetchPromise,
-            timeout((0, _configJs.TIMEOUT_SEC))
-        ]);
-        const data = await res.json();
-        if (!res.ok) throw new Error(`Error fetching recipe. (API error ${res.status}) ${data.message}`);
-        return data;
-    } catch (err) {
-        throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
-    }
-}; // export const getJSON = async function (url) {
- //   try {
- //     const res = await Promise.race([fetch(url), timeout(TIMEOUT_SEC)]);
- //     const data = await res.json();
- //     if (!res.ok)
- //       throw new Error(
- //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
- //       );
- //     return data;
- //   } catch (err) {
- //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
- //   }
- // };
- // export const sendJSON = async function (url, uploadData) {
- //   try {
- //     const fetchPro = fetch(url, {
- //       method: 'POST',
- //       headers: {
- //         'Content-Type': 'application/json',
- //       },
- //       body: JSON.stringify(uploadData),
- //     });
- //     const res = await Promise.race([fetchPro, timeout(TIMEOUT_SEC)]);
- //     const data = await res.json();
- //     if (!res.ok)
- //       throw new Error(
- //         `Error fetching recipe. (API error ${res.status}) ${data.message}`
- //       );
- //     return data;
- //   } catch (err) {
- //     throw err; // rethrowing so that the function calling this one can handle the error (Promise won't reject)
- //   }
- // };
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./config.js":"k5Hzs"}],"l60JC":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-var _iconsSvg = require("../../img/icons.svg");
-var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
-var _fractional = require("fractional");
-class RecipeView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".recipe");
-    _errorMessage = `We could not find the recipe you are looking for.`;
-    _message = "";
-    // the pub for the controlRecipes sub
-    addHandlerRender(handler) {
-        [
-            "hashchange",
-            "load"
-        ].forEach((ev)=>window.addEventListener(ev, handler));
-    }
-    addHandlerUpdateServings(handler) {
-        // event delegation (updates the entire recipe parent el)
-        this._parentEl.addEventListener("click", function(e) {
-            const btn = e.target.closest(".btn--update-servings");
-            if (!btn) return;
-            const { updateTo } = btn.dataset;
-            if (+updateTo > 0) handler(+updateTo);
-        });
-    }
-    addHandlerAddBookmark(handler) {
-        // event delegation
-        this._parentEl.addEventListener("click", function(e) {
-            const btn = e.target.closest(".btn--bookmark");
-            if (!btn) return;
-            handler();
-        });
-    }
-    _generateMarkup() {
-        return `
-      <figure class="recipe__fig">
-        <img src='${this._data.image}' alt="${this._data.title}" class="recipe__img" />
-        <h1 class="recipe__title">
-          <span>${this._data.title}</span>
-        </h1>
-      </figure>
-
-      <div class="recipe__details">
-        <div class="recipe__info">
-          <svg class="recipe__info-icon">
-            <use href="${0, _iconsSvgDefault.default}#icon-clock"></use>
-          </svg>
-          <span class="recipe__info-data recipe__info-data--minutes">${this._data.cookingTime}</span>
-          <span class="recipe__info-text">minutes</span>
-        </div>
-        <div class="recipe__info">
-          <svg class="recipe__info-icon">
-            <use href="${0, _iconsSvgDefault.default}#icon-users"></use>
-          </svg>
-          <span class="recipe__info-data recipe__info-data--people">${this._data.servings}</span>
-          <span class="recipe__info-text">servings</span>
-
-          <div class="recipe__info-buttons">
-            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings - 1}">
-              <svg>
-                <use href="${0, _iconsSvgDefault.default}#icon-minus-circle"></use>
-              </svg>
-            </button>
-            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings + 1}">
-              <svg>
-                <use href="${0, _iconsSvgDefault.default}#icon-plus-circle"></use>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="recipe__user-generated ${this._data.key ? "" : "hidden"}">
-          <svg>
-            <use href="${0, _iconsSvgDefault.default}#icon-user"></use>
-          </svg>
-        </div>
-        <button class="btn--round btn--bookmark">
-          <svg class="">
-            <use href="${0, _iconsSvgDefault.default}#icon-bookmark${this._data.bookmarked ? "-fill" : ""}"></use>
-          </svg>
-        </button>
-      </div>
-
-      <div class="recipe__ingredients">
-        <h2 class="heading--2">Recipe ingredients</h2>
-        <ul class="recipe__ingredient-list">
-        ${this._data.ingredients.map(this._generateMarkupIngredient).join("")}
-        </ul>
-      </div>
-
-      <div class="recipe__directions">
-        <h2 class="heading--2">How to cook it</h2>
-        <p class="recipe__directions-text">
-          This recipe was carefully designed and tested by
-          <span class="recipe__publisher">${this._data.publisher}</span>. Please check out
-          directions at their website.
-        </p>
-        <a
-          class="btn--small recipe__btn"
-          href="${this._data.sourceUrl}"
-          target="_blank"
-        >
-          <span>Directions</span>
-          <svg class="search__icon">
-            <use href="${0, _iconsSvgDefault.default}#icon-arrow-right"></use>
-          </svg>
-        </a>
-      </div>
-    `;
-    }
-    _generateMarkupIngredient(ing) {
-        return `
-    <li class="recipe__ingredient">
-      <svg class="recipe__icon">
-        <use href="${0, _iconsSvgDefault.default}#icon-check"></use>
-      </svg>
-      <div class="recipe__quantity">${ing.quantity ? new (0, _fractional.Fraction)(ing.quantity).toString() : ""}</div>
-      <div class="recipe__description">
-        <span class="recipe__unit">${ing.unit}</span>
-        ${ing.description}
-      </div>
-    </li>`;
-    }
-}
-exports.default = new RecipeView();
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","../../img/icons.svg":"cMpiy","fractional":"3SU56","./View.js":"5cUXS"}],"cMpiy":[function(require,module,exports) {
-module.exports = require("17cff2908589362b").getBundleURL("hWUTQ") + "icons.21bad73c.svg" + "?" + Date.now();
-
-},{"17cff2908589362b":"lgJ39"}],"lgJ39":[function(require,module,exports) {
-"use strict";
-var bundleURL = {};
-function getBundleURLCached(id) {
-    var value = bundleURL[id];
-    if (!value) {
-        value = getBundleURL();
-        bundleURL[id] = value;
-    }
-    return value;
-}
-function getBundleURL() {
-    try {
-        throw new Error();
-    } catch (err) {
-        var matches = ("" + err.stack).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^)\n]+/g);
-        if (matches) // The first two stack frames will be this function and getBundleURLCached.
-        // Use the 3rd one, which will be a runtime in the original bundle.
-        return getBaseURL(matches[2]);
-    }
-    return "/";
-}
-function getBaseURL(url) {
-    return ("" + url).replace(/^((?:https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/.+)\/[^/]+$/, "$1") + "/";
-}
-// TODO: Replace uses with `new URL(url).origin` when ie11 is no longer supported.
-function getOrigin(url) {
-    var matches = ("" + url).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^/]+/);
-    if (!matches) throw new Error("Origin not found");
-    return matches[0];
-}
-exports.getBundleURL = getBundleURLCached;
-exports.getBaseURL = getBaseURL;
-exports.getOrigin = getOrigin;
-
-},{}],"3SU56":[function(require,module,exports) {
-/*
-fraction.js
-A Javascript fraction library.
-
-Copyright (c) 2009  Erik Garrison <erik@hypervolu.me>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-*/ /* Fractions */ /* 
- *
- * Fraction objects are comprised of a numerator and a denomenator.  These
- * values can be accessed at fraction.numerator and fraction.denomenator.
- *
- * Fractions are always returned and stored in lowest-form normalized format.
- * This is accomplished via Fraction.normalize.
- *
- * The following mathematical operations on fractions are supported:
- *
- * Fraction.equals
- * Fraction.add
- * Fraction.subtract
- * Fraction.multiply
- * Fraction.divide
- *
- * These operations accept both numbers and fraction objects.  (Best results
- * are guaranteed when the input is a fraction object.)  They all return a new
- * Fraction object.
- *
- * Usage:
- *
- * TODO
- *
- */ /*
- * The Fraction constructor takes one of:
- *   an explicit numerator (integer) and denominator (integer),
- *   a string representation of the fraction (string),
- *   or a floating-point number (float)
- *
- * These initialization methods are provided for convenience.  Because of
- * rounding issues the best results will be given when the fraction is
- * constructed from an explicit integer numerator and denomenator, and not a
- * decimal number.
- *
- *
- * e.g. new Fraction(1, 2) --> 1/2
- *      new Fraction('1/2') --> 1/2
- *      new Fraction('2 3/4') --> 11/4  (prints as 2 3/4)
- *
- */ Fraction = function(numerator, denominator) {
-    /* double argument invocation */ if (typeof numerator !== "undefined" && denominator) {
-        if (typeof numerator === "number" && typeof denominator === "number") {
-            this.numerator = numerator;
-            this.denominator = denominator;
-        } else if (typeof numerator === "string" && typeof denominator === "string") {
-            // what are they?
-            // hmm....
-            // assume they are ints?
-            this.numerator = parseInt(numerator);
-            this.denominator = parseInt(denominator);
-        }
-    /* single-argument invocation */ } else if (typeof denominator === "undefined") {
-        num = numerator; // swap variable names for legibility
-        if (typeof num === "number") {
-            this.numerator = num;
-            this.denominator = 1;
-        } else if (typeof num === "string") {
-            var a, b; // hold the first and second part of the fraction, e.g. a = '1' and b = '2/3' in 1 2/3
-            // or a = '2/3' and b = undefined if we are just passed a single-part number
-            var arr = num.split(" ");
-            if (arr[0]) a = arr[0];
-            if (arr[1]) b = arr[1];
-            /* compound fraction e.g. 'A B/C' */ //  if a is an integer ...
-            if (a % 1 === 0 && b && b.match("/")) return new Fraction(a).add(new Fraction(b));
-            else if (a && !b) {
-                /* simple fraction e.g. 'A/B' */ if (typeof a === "string" && a.match("/")) {
-                    // it's not a whole number... it's actually a fraction without a whole part written
-                    var f = a.split("/");
-                    this.numerator = f[0];
-                    this.denominator = f[1];
-                /* string floating point */ } else if (typeof a === "string" && a.match(".")) return new Fraction(parseFloat(a));
-                else {
-                    this.numerator = parseInt(a);
-                    this.denominator = 1;
-                }
-            } else return undefined; // could not parse
-        }
-    }
-    this.normalize();
-};
-Fraction.prototype.clone = function() {
-    return new Fraction(this.numerator, this.denominator);
-};
-/* pretty-printer, converts fractions into whole numbers and fractions */ Fraction.prototype.toString = function() {
-    if (this.denominator === "NaN") return "NaN";
-    var wholepart = this.numerator / this.denominator > 0 ? Math.floor(this.numerator / this.denominator) : Math.ceil(this.numerator / this.denominator);
-    var numerator = this.numerator % this.denominator;
-    var denominator = this.denominator;
-    var result = [];
-    if (wholepart != 0) result.push(wholepart);
-    if (numerator != 0) result.push((wholepart === 0 ? numerator : Math.abs(numerator)) + "/" + denominator);
-    return result.length > 0 ? result.join(" ") : 0;
-};
-/* destructively rescale the fraction by some integral factor */ Fraction.prototype.rescale = function(factor) {
-    this.numerator *= factor;
-    this.denominator *= factor;
-    return this;
-};
-Fraction.prototype.add = function(b) {
-    var a = this.clone();
-    if (b instanceof Fraction) b = b.clone();
-    else b = new Fraction(b);
-    td = a.denominator;
-    a.rescale(b.denominator);
-    b.rescale(td);
-    a.numerator += b.numerator;
-    return a.normalize();
-};
-Fraction.prototype.subtract = function(b) {
-    var a = this.clone();
-    if (b instanceof Fraction) b = b.clone(); // we scale our argument destructively, so clone
-    else b = new Fraction(b);
-    td = a.denominator;
-    a.rescale(b.denominator);
-    b.rescale(td);
-    a.numerator -= b.numerator;
-    return a.normalize();
-};
-Fraction.prototype.multiply = function(b) {
-    var a = this.clone();
-    if (b instanceof Fraction) {
-        a.numerator *= b.numerator;
-        a.denominator *= b.denominator;
-    } else if (typeof b === "number") a.numerator *= b;
-    else return a.multiply(new Fraction(b));
-    return a.normalize();
-};
-Fraction.prototype.divide = function(b) {
-    var a = this.clone();
-    if (b instanceof Fraction) {
-        a.numerator *= b.denominator;
-        a.denominator *= b.numerator;
-    } else if (typeof b === "number") a.denominator *= b;
-    else return a.divide(new Fraction(b));
-    return a.normalize();
-};
-Fraction.prototype.equals = function(b) {
-    if (!(b instanceof Fraction)) b = new Fraction(b);
-    // fractions that are equal should have equal normalized forms
-    var a = this.clone().normalize();
-    var b = b.clone().normalize();
-    return a.numerator === b.numerator && a.denominator === b.denominator;
-};
-/* Utility functions */ /* Destructively normalize the fraction to its smallest representation. 
- * e.g. 4/16 -> 1/4, 14/28 -> 1/2, etc.
- * This is called after all math ops.
- */ Fraction.prototype.normalize = function() {
-    var isFloat = function(n) {
-        return typeof n === "number" && (n > 0 && n % 1 > 0 && n % 1 < 1 || n < 0 && n % -1 < 0 && n % -1 > -1);
-    };
-    var roundToPlaces = function(n, places) {
-        if (!places) return Math.round(n);
-        else {
-            var scalar = Math.pow(10, places);
-            return Math.round(n * scalar) / scalar;
-        }
-    };
-    return function() {
-        // XXX hackish.  Is there a better way to address this issue?
-        //
-        /* first check if we have decimals, and if we do eliminate them
-         * multiply by the 10 ^ number of decimal places in the number
-         * round the number to nine decimal places
-         * to avoid js floating point funnies
-         */ if (isFloat(this.denominator)) {
-            var rounded = roundToPlaces(this.denominator, 9);
-            var scaleup = Math.pow(10, rounded.toString().split(".")[1].length);
-            this.denominator = Math.round(this.denominator * scaleup); // this !!! should be a whole number
-            //this.numerator *= scaleup;
-            this.numerator *= scaleup;
-        }
-        if (isFloat(this.numerator)) {
-            var rounded = roundToPlaces(this.numerator, 9);
-            var scaleup = Math.pow(10, rounded.toString().split(".")[1].length);
-            this.numerator = Math.round(this.numerator * scaleup); // this !!! should be a whole number
-            //this.numerator *= scaleup;
-            this.denominator *= scaleup;
-        }
-        var gcf = Fraction.gcf(this.numerator, this.denominator);
-        this.numerator /= gcf;
-        this.denominator /= gcf;
-        if (this.numerator < 0 && this.denominator < 0 || this.numerator > 0 && this.denominator < 0) {
-            this.numerator *= -1;
-            this.denominator *= -1;
-        }
-        return this;
-    };
-}();
-/* Takes two numbers and returns their greatest common factor.
- */ Fraction.gcf = function(a, b) {
-    var common_factors = [];
-    var fa = Fraction.primeFactors(a);
-    var fb = Fraction.primeFactors(b);
-    // for each factor in fa
-    // if it's also in fb
-    // put it into the common factors
-    fa.forEach(function(factor) {
-        var i = fb.indexOf(factor);
-        if (i >= 0) {
-            common_factors.push(factor);
-            fb.splice(i, 1); // remove from fb
-        }
-    });
-    if (common_factors.length === 0) return 1;
-    var gcf = function() {
-        var r = common_factors[0];
-        var i;
-        for(i = 1; i < common_factors.length; i++)r = r * common_factors[i];
-        return r;
-    }();
-    return gcf;
-};
-// Adapted from: 
-// http://www.btinternet.com/~se16/js/factor.htm
-Fraction.primeFactors = function(n) {
-    var num1 = Math.abs(n);
-    var factors = [];
-    var _factor = 2; // first potential prime factor
-    while(_factor * _factor <= num1)if (num1 % _factor === 0) {
-        factors.push(_factor); // so keep it
-        num1 = num1 / _factor; // and divide our search point by it
-    } else _factor++; // and increment
-    if (num1 != 1) factors.push(num1); //    so it too should be recorded
-    return factors; // Return the prime factors
-};
-module.exports.Fraction = Fraction;
-
-},{}],"5cUXS":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _iconsSvg = require("../../img/icons.svg");
-var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
-class View {
-    _data;
-    // takes the data received from controller and stores it inside _data
-    /**
-   * Render the received object to the DOM
-   * @param {Object | Object[]} data The data to be rendered (e.g. recipe)
-   * @param {boolean} [render=true] If false, create markup string instead of rendering to the DOM
-   * @returns {undefined | string} A markup string is returned if render=false
-   * @this {Object} View instance
-   * @author TSM13
-   * @todo Finish implementation
-   */ render(data, render = true) {
-        if (!data || Array.isArray(data) && data.length === 0) return this.renderError();
-        this._data = data;
-        const markup = this._generateMarkup();
-        if (!render) return markup;
-        this._clear();
-        this._parentEl.insertAdjacentHTML("afterbegin", markup);
-    }
-    // Compares the new HTML to the old HTML, and only updates what changed
-    update(data) {
-        this._data = data;
-        const newMarkup = this._generateMarkup();
-        // Creates a new "Virtual" DOM element (which doesn't exist on the page but exists in memory)
-        const newDOM = document.createRange().createContextualFragment(newMarkup);
-        const newElements = Array.from(newDOM.querySelectorAll("*"));
-        const currElements = Array.from(this._parentEl.querySelectorAll("*"));
-        newElements.forEach((newEl, i)=>{
-            const currEl = currElements[i];
-            // Updates changed text
-            if (!newEl.isEqualNode(currEl) && newEl.firstChild?.nodeValue.trim() !== "") currEl.textContent = newEl.textContent;
-            // Updates changed attributes: replacing attributes from the old attribute to the new ones
-            if (!newEl.isEqualNode(currEl)) Array.from(newEl.attributes).forEach((attr)=>currEl.setAttribute(attr.name, attr.value));
-        });
-    }
-    _clear() {
-        this._parentEl.innerHTML = "";
-    }
-    renderSpinner() {
-        const markup = `
-        <div class="spinner">
-          <svg>
-            <use href="${(0, _iconsSvgDefault.default)}#icon-loader"></use>
-          </svg>
-        </div>
-        `;
-        this._clear();
-        this._parentEl.insertAdjacentHTML("afterbegin", markup);
-    }
-    renderError(message = this._errorMessage) {
-        const markup = `
-          <div class="error">
-            <div>
-              <svg>
-                <use href="${(0, _iconsSvgDefault.default)}#icon-alert-triangle"></use>
-              </svg>
-            </div>
-            <p>${message}</p>
-          </div>
-        `;
-        this._clear();
-        this._parentEl.insertAdjacentHTML("afterbegin", markup);
-    }
-    renderMessage(message = this._message) {
-        const markup = `
-           <div class="message">
-            <div>
-              <svg>
-                <use href="${(0, _iconsSvgDefault.default)}#icon-smile"></use>
-              </svg>
-            </div>
-            <p>${message}</p>
-          </div>
-        `;
-        this._clear();
-        this._parentEl.insertAdjacentHTML("afterbegin", markup);
-    }
-}
-exports.default = View;
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","../../img/icons.svg":"cMpiy"}],"9OQAM":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-class SearchView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".search");
-    getQuery() {
-        const query = this._parentEl.querySelector(".search__field").value;
-        this._clearInput();
-        return query;
-    }
-    _clearInput() {
-        this._parentEl.querySelector(".search__field").value = "";
-    }
-    // the pub for controlSearchResults sub
-    addHandlerSearch(handler) {
-        this._parentEl.addEventListener("submit", (e)=>{
-            e.preventDefault();
-            handler();
-        });
-    }
-}
-exports.default = new SearchView();
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./View.js":"5cUXS"}],"cSbZE":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-var _previewViewJs = require("./previewView.js");
-var _previewViewJsDefault = parcelHelpers.interopDefault(_previewViewJs);
-class ResultsView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".results");
-    _errorMessage = `No recipes found for your search. Please try another search.`;
-    _message = "";
-    // Instead of rendering, this method will return the markup as a string
-    // the boolean param is to prevent previewView from rendering, and let the resultsView obj render method render instead
-    _generateMarkup() {
-        return this._data.map((result)=>(0, _previewViewJsDefault.default).render(result, false)).join("");
-    }
-}
-exports.default = new ResultsView();
-
-},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./previewView.js":"1FDQ6"}],"1FDQ6":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _iconsSvg = require("../../img/icons.svg");
-var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-class PreviewView extends (0, _viewJsDefault.default) {
-    _parentEl = "";
-    _generateMarkup() {
-        const id = window.location.hash.slice(1);
-        return `
-      <li class="preview">
-        <a class="preview__link ${this._data.id === id ? "preview__link--active" : ""}" href="#${this._data.id}">
-          <figure class="preview__fig">
-            <img src="${this._data.image}" alt="${this._data.title}" />
-          </figure>
-          <div class="preview__data">
-            <h4 class="preview__title">${this._data.title}</h4>
-            <p class="preview__publisher">${this._data.publisher}</p>
-            <div class="preview__user-generated ${this._data.key ? "" : "hidden"}">
-              <svg>
-                <use href="${0, _iconsSvgDefault.default}#icon-user"></use>
-              </svg>
-            </div>
-          </div>
-        </a>
-      </li>
-    `;
-    }
-}
-exports.default = new PreviewView();
-
-},{"../../img/icons.svg":"cMpiy","./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"6z7bi":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _iconsSvg = require("../../img/icons.svg");
-var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-class PaginationView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".pagination");
-    _currentPage;
-    addHandlerClick(handler) {
-        // event delegation
-        this._parentEl.addEventListener("click", (e)=>{
-            const btn = e.target.closest(".btn--inline");
-            if (!btn) return;
-            const goToPage = +btn.dataset.goto;
-            handler(goToPage);
-        });
-    }
-    _generateMarkup() {
-        this._currentPage = this._data.page;
-        // NOTE: const currentPage = this._data.page;
-        const numPages = Math.ceil(this._data.results.length / this._data.resultsPerPage);
-        // Page 1, and there are other pages
-        if (this._currentPage === 1 && numPages > 1) return this._generateMarkupButton("next");
-        // Last page
-        if (this._currentPage === numPages && numPages > 1) return this._generateMarkupButton("prev");
-        // Other page
-        if (this._currentPage < numPages) return this._generateMarkupButton("prev") + this._generateMarkupButton("next");
-        // Page 1, and there are no other pages
-        return "";
-    }
-    _generateMarkupButton(type) {
-        // data attribute is used to connect the dom to the code logic
-        if (type === "prev") return `
-        <button data-goto="${this._currentPage - 1}" class="btn--inline pagination__btn--prev">
-          <svg class="search__icon">
-              <use href="${0, _iconsSvgDefault.default}#icon-arrow-left"></use>
-          </svg>
-          <span>Page ${this._currentPage - 1}</span>
-        </button>
-  `;
-        if (type === "next") return `
-        <button data-goto="${this._currentPage + 1}" class="btn--inline pagination__btn--next">
-          <span>Page ${this._currentPage + 1}</span>
-          <svg class="search__icon">
-              <use href="${0, _iconsSvgDefault.default}#icon-arrow-right"></use>
-          </svg>
-        </button>
-  `;
-    }
-}
-exports.default = new PaginationView();
-
-},{"../../img/icons.svg":"cMpiy","./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"4Lqzq":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-var _previewViewJs = require("./previewView.js");
-var _previewViewJsDefault = parcelHelpers.interopDefault(_previewViewJs);
-class BookmarksView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".bookmarks__list");
-    _errorMessage = `No bookmarks yet. Find a nice recipe and bookmark it :)`;
-    _message = "";
-    addHandlerRender(handler) {
-        window.addEventListener("load", handler);
-    }
-    // Instead of rendering, this method will return the markup as a string
-    // the boolean param is to prevent previewView from rendering, and let the bookmarksView obj render method render instead
-    _generateMarkup() {
-        return this._data.map((bookmark)=>(0, _previewViewJsDefault.default).render(bookmark, false)).join("");
-    }
-}
-exports.default = new BookmarksView();
-
-},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./previewView.js":"1FDQ6"}],"i6DNj":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-var _viewJs = require("./View.js");
-var _viewJsDefault = parcelHelpers.interopDefault(_viewJs);
-class AddRecipeView extends (0, _viewJsDefault.default) {
-    _parentEl = document.querySelector(".upload");
-    _message = "Recipe uploaded successfully! :D";
-    _window = document.querySelector(".add-recipe-window");
-    _overlay = document.querySelector(".overlay");
-    _btnOpen = document.querySelector(".nav__btn--add-recipe");
-    _btnClose = document.querySelector(".btn--close-modal");
-    constructor(){
-        super();
-        this._addHandlerShowWindow();
-        this._addHandlerCloseWindow();
-    }
-    toggleWindow() {
-        this._overlay.classList.toggle("hidden");
-        this._window.classList.toggle("hidden");
-    }
-    _addHandlerShowWindow() {
-        this._btnOpen.addEventListener("click", this.toggleWindow.bind(this));
-    }
-    _addHandlerCloseWindow() {
-        this._btnClose.addEventListener("click", this.toggleWindow.bind(this));
-        this._overlay.addEventListener("click", this.toggleWindow.bind(this));
-    }
-    addHandlerUpload(handler) {
-        this._parentEl.addEventListener("submit", function(e) {
-            e.preventDefault();
-            const dataArr = [
-                ...new FormData(this)
-            ];
-            const data = Object.fromEntries(dataArr);
-            handler(data);
-        });
-    }
-    _generateMarkup() {}
-}
-exports.default = new AddRecipeView();
-
-},{"./View.js":"5cUXS","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["hycaY","aenu9"], "aenu9", "parcelRequire3a11")
+},{}]},["hycaY","aenu9"], "aenu9", "parcelRequire3a11")
 
 //# sourceMappingURL=index.e37f48ea.js.map
