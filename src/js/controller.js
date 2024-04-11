@@ -1,5 +1,7 @@
 import * as model from './model.js';
 import { MODAL_CLOSE_SEC } from './config.js';
+import { ANIMATION_WAIT } from './config.js';
+import { wait } from './helpers.js';
 import recipeView from './views/recipeView.js';
 import searchView from './views/searchView.js';
 import resultsView from './views/resultsView.js';
@@ -106,12 +108,17 @@ const controlAddRecipe = async function (newRecipe) {
     // Change ID in the URL
     window.history.pushState(null, '', `#${model.state.recipe.id}`);
 
-    // Close form window
-    setTimeout(() => {
-      addRecipeView.toggleWindow();
-    }, MODAL_CLOSE_SEC * 1000);
+    // Close form window and re-render form
+    await wait(MODAL_CLOSE_SEC);
+    addRecipeView.toggleWindow();
+    await wait(ANIMATION_WAIT);
+    addRecipeView.render(model.state.recipe);
   } catch (err) {
     addRecipeView.renderError(err.message);
+    await wait(MODAL_CLOSE_SEC);
+
+    // Re-render view
+    addRecipeView.render(model.state.recipe);
   }
 };
 
