@@ -112,13 +112,13 @@ const controlAddRecipe = async function (newRecipe) {
     await wait(MODAL_CLOSE_SEC);
     addRecipeView.toggleWindow();
     await wait(ANIMATION_WAIT);
-    addRecipeView.render(model.state.recipe);
+    addRecipeView.render({});
   } catch (err) {
     addRecipeView.renderError(err.message);
-    await wait(MODAL_CLOSE_SEC);
+    await wait(MODAL_CLOSE_SEC * 2);
 
     // Re-render view
-    addRecipeView.render(model.state.recipe);
+    addRecipeView.render(newRecipe);
   }
 };
 
